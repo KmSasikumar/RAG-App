@@ -14,6 +14,29 @@ class VectorStore:
         # or we create the collection dynamically on first insertion.
         self.vector_size = 384 
 
+    def _collection_exists(self) -> bool:
+        collections = self.client.get_collections().collections
+        return any(c.name == self.collection_name for c in collections)
+
+    def clear_collection(self):
+        """Deletes the collection (and all its points) if it exists."""
+        if self._collection_exists():
+            self.client.delete_collection(collection_name=self.collection_name)
+
+    def reset_collection(self, vector_size: int):
+        """Drops any existing collection and recreates it empty.
+
+        Indexing always rebuilds from the current contents of data/, so a
+        fresh collection per indexing run keeps the store idempotent:
+        re-running the app must not duplicate chunks, and chunks from
+        deleted or edited PDFs must not linger.
+        """
+        self.clear_collection()
+        self.client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+        )
+
     def _ensure_collection(self, vector_size: int):
         """Creates the collection if it doesn't exist."""
         collections = self.client.get_collections().collections

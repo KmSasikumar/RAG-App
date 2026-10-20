@@ -31,13 +31,18 @@ class RAGPipeline:
         
         if not all_chunks:
             print("No text could be extracted from the documents.")
+            # Drop stale vectors so removed PDFs stop being searchable.
+            self.vector_store.clear_collection()
             return
 
         print(f"Extracted {len(all_chunks)} total chunks. Generating embeddings...")
         texts = [chunk["text"] for chunk in all_chunks]
         embeddings = self.embedder.embed_texts(texts)
-        
+
         print("Storing in vector database...")
+        # Rebuild the collection from scratch on every indexing run so
+        # re-running the app never duplicates chunks (idempotent indexing).
+        self.vector_store.reset_collection(len(embeddings[0]))
         self.vector_store.index_chunks(all_chunks, embeddings)
         print("Ingestion complete!")
 
