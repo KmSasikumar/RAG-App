@@ -24,13 +24,23 @@ class RAGPipeline:
             return
 
         all_chunks = []
+        failed_files = []
         for root, dirs, files in os.walk(data_dir):
             for file in files:
                 if file.lower().endswith(".pdf"):
                     file_path = os.path.join(root, file)
                     print(f"Processing {file_path}...")
-                    chunks = self.doc_processor.process_pdf(file_path)
+                    # Isolate per-file failures: one corrupt or unreadable
+                    # PDF must not abort indexing of every other document.
+                    try:
+                        chunks = self.doc_processor.process_pdf(file_path)
+                    except Exception as e:
+                        failed_files.append(file_path)
+                        print(f"Warning: skipping {file_path} ({type(e).__name__}: {e})")
+                        continue
                     all_chunks.extend(chunks)
+        if failed_files:
+            print(f"Skipped {len(failed_files)} unreadable file(s): {', '.join(failed_files)}")
         
         if not all_chunks:
             print("No text could be extracted from the documents.")
