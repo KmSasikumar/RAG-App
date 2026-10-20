@@ -39,7 +39,17 @@ class DocumentProcessor:
             metadata = item["metadata"]
             
             # Simple recursive-like character splitting (simplified for word boundaries)
-            words = text.split()
+            # Split any single word longer than the chunk size (URLs, hashes,
+            # base64 blobs) so no chunk can exceed CHUNK_SIZE.
+            words = []
+            for raw_word in text.split():
+                if len(raw_word) > self.chunk_size:
+                    words.extend(
+                        raw_word[i:i + self.chunk_size]
+                        for i in range(0, len(raw_word), self.chunk_size)
+                    )
+                else:
+                    words.append(raw_word)
             current_chunk = []
             current_length = 0
             
