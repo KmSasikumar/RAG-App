@@ -3,13 +3,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Project root (the folder containing src/), so relative paths resolve the
+# same no matter which directory the app is launched from.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _resolve_project_path(path: str) -> str:
+    """Resolves a possibly-relative path against the project root."""
+    return path if os.path.isabs(path) else os.path.join(PROJECT_ROOT, path)
+
+
 class Config:
     # LLM Settings
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
-    
+
     # Qdrant Settings
-    QDRANT_STORAGE_PATH = os.getenv("QDRANT_STORAGE_PATH", "./qdrant_storage")
+    QDRANT_STORAGE_PATH = _resolve_project_path(
+        os.getenv("QDRANT_STORAGE_PATH", "qdrant_storage")
+    )
     QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "pdf_documents")
     
     # Embeddings Settings

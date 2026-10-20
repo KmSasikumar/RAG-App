@@ -1,5 +1,6 @@
 import os
 from typing import List
+from src.config import PROJECT_ROOT
 from src.pdf_parser import DocumentProcessor
 from src.embedder import Embedder
 from src.vector_store import VectorStore
@@ -15,7 +16,9 @@ class RAGPipeline:
 
     def index_all_pdfs(self):
         """Scans data/, parses, embeds, and indexes new documents."""
-        data_dir = "data"
+        # Resolve against the project root, not the caller's cwd, so the
+        # app finds its documents no matter where it is launched from.
+        data_dir = os.path.join(PROJECT_ROOT, "data")
         if not os.path.exists(data_dir):
             print("Data directory not found.")
             return
