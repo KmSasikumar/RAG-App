@@ -54,4 +54,9 @@ Question:
             temperature=0.0, # Low temperature for more factual and less creative responses
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if not content:
+            # Some providers/models return an empty completion (content=None);
+            # never leak None to callers, which print it as the literal "None".
+            return "The model returned an empty response. Please try again."
+        return content
