@@ -38,12 +38,30 @@ class VectorStore:
         )
 
     def _ensure_collection(self, vector_size: int):
-        """Creates the collection if it doesn't exist."""
-        collections = self.client.get_collections().collections
-        if not any(c.name == self.collection_name for c in collections):
+        """Creates the collection if it doesn't exist.
+
+        If it exists with a different vector size, the configured embedding
+        model no longer matches the stored vectors: fail early with an
+        actionable message instead of qdrant's raw dimension error.
+        """
+        if not self._collection_exists():
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            )
+            return
+        existing_size = (
+            self.client.get_collection(self.collection_name)
+            .config.params.vectors.size
+        )
+        if existing_size != vector_size:
+            raise ValueError(
+                f"Embedding dimension mismatch: collection '{self.collection_name}' "
+                f"stores {existing_size}-dimensional vectors, but the configured "
+                f"embedding model produces {vector_size}-dimensional vectors. "
+                "Re-run indexing (python main.py) to rebuild the collection with "
+                "the current model, or point QDRANT_COLLECTION_NAME at a new "
+                "collection."
             )
 
     def index_chunks(self, chunks: List[Dict[str, Any]], embeddings: List[List[float]]):
