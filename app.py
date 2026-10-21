@@ -7,9 +7,10 @@ indexing or retrieval logic:
 - Upload PDFs -> they are copied into data/ -> RAGPipeline.index_all_pdfs()
 - Ask a question -> retrieval runs fully WITHOUT any API key and the
   retrieved chunks (with document + page citations) are always shown.
-- The answer/generation step needs the visitor's OWN OpenRouter API key,
-  typed into the UI. No key is stored, shipped, or read from the server
-  environment for visitors.
+- The answer/generation step needs the visitor's OWN API key for the
+  provider they pick (OpenRouter or Google Gemini), typed into the UI.
+  No key is stored, shipped, or read from the server environment for
+  visitors.
 """
 
 import os
@@ -91,7 +92,7 @@ def _format_chunks(results) -> str:
 
 
 @spaces.GPU(duration=60)
-def ask(question: str, api_key: str):
+def ask(question: str, provider: str, api_key: str):
     """Retrieve always; generate only when the visitor supplied a key."""
     question = (question or "").strip()
     if not question:
@@ -110,20 +111,29 @@ def ask(question: str, api_key: str):
     if not (api_key or "").strip():
         return (
             "Retrieval worked — the most relevant chunks are shown below. "
-            "To generate an answer from them, add your own OpenRouter API "
-            "key above (get one at openrouter.ai/keys). No key is needed "
-            "for retrieval.",
+            "To generate an answer from them, pick a provider and add your "
+            "own API key above (OpenRouter: openrouter.ai/keys; Google "
+            "Gemini: aistudio.google.com/apikey). No key is needed for "
+            "retrieval.",
             chunks_md,
         )
 
-    # Configure the existing LLM client with the visitor's own key, in this
-    # process only. Nothing is persisted.
-    os.environ["OPENROUTER_API_KEY"] = api_key.strip()
-    Config.OPENROUTER_API_KEY = api_key.strip()
+    # Use the visitor's own key, in this process only. Nothing is persisted.
     from src.llm import LLMClient
 
+    key = api_key.strip()
     try:
-        answer = LLMClient().generate_answer(question, results)
+        if provider == "Google Gemini":
+            client = LLMClient(
+                api_key=key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                model="gemini-2.5-flash",
+            )
+        else:
+            os.environ["OPENROUTER_API_KEY"] = key
+            Config.OPENROUTER_API_KEY = key
+            client = LLMClient()
+        answer = client.generate_answer(question, results)
     except Exception as e:
         answer = (
             f"The answer step failed ({type(e).__name__}: {e}). "
@@ -154,10 +164,15 @@ with gr.Blocks(title="RAG PDF Assistant") as demo:
     index_status = gr.Markdown()
     index_btn.click(index_uploaded, inputs=uploads, outputs=index_status)
 
+    provider_radio = gr.Radio(
+        choices=["OpenRouter", "Google Gemini"],
+        value="OpenRouter",
+        label="Answer provider (only needed for the answer step)",
+    )
     api_key_box = gr.Textbox(
-        label="Your OpenRouter API key (only needed for the answer step)",
+        label="Your API key for the chosen provider (never stored)",
         type="password",
-        placeholder="sk-or-... — used only for your question, never stored",
+        placeholder="OpenRouter: sk-or-... · Gemini: AIza... — used only for your question",
     )
     question_box = gr.Textbox(
         label="Question",
@@ -166,7 +181,7 @@ with gr.Blocks(title="RAG PDF Assistant") as demo:
     ask_btn = gr.Button("Ask", variant="primary")
     answer_box = gr.Markdown(label="Answer")
     chunks_box = gr.Markdown(label="Retrieved chunks")
-    ask_btn.click(ask, inputs=[question_box, api_key_box], outputs=[answer_box, chunks_box])
+    ask_btn.click(ask, inputs=[question_box, provider_radio, api_key_box], outputs=[answer_box, chunks_box])
 
 if __name__ == "__main__":
     demo.launch()

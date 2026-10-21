@@ -3,13 +3,20 @@ from src.config import Config
 from typing import List, Dict, Any
 
 class LLMClient:
-    def __init__(self):
-        Config.validate()
+    def __init__(self, api_key=None, base_url=None, model=None):
+        # Default path (CLI / OpenRouter) is unchanged: key and model come
+        # from Config and Config.validate() guards them. A caller may instead
+        # pass an explicit key/base_url/model to use another
+        # OpenAI-compatible provider (e.g. Google Gemini) — then Config's
+        # OpenRouter validation does not apply.
+        if api_key is None:
+            Config.validate()
+            api_key = Config.OPENROUTER_API_KEY
         self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=Config.OPENROUTER_API_KEY,
+            base_url=base_url or "https://openrouter.ai/api/v1",
+            api_key=api_key,
         )
-        self.model = Config.OPENROUTER_MODEL
+        self.model = model or Config.OPENROUTER_MODEL
 
     def generate_answer(self, query: str, context_docs: List[Dict[str, Any]]) -> str:
         """Generates an answer based on the query and retrieved context."""
