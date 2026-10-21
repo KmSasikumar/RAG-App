@@ -41,7 +41,7 @@ def _collection_count(pipeline: RAGPipeline) -> int:
         return 0
 
 
-@spaces.GPU(duration=180)
+@spaces.GPU(duration=60)
 def index_uploaded(files) -> str:
     """Copy uploaded PDFs into data/ and (re)index everything there."""
     pipeline = get_pipeline()
@@ -67,7 +67,7 @@ def index_uploaded(files) -> str:
     return f"Re-indexed the PDFs already in data/. {total} chunk(s) searchable."
 
 
-@spaces.GPU(duration=180)
+@spaces.GPU(duration=60)
 def index_bundled() -> str:
     """Index the PDFs bundled with the repo (data/sample.pdf) on first use."""
     pipeline = get_pipeline()
@@ -90,7 +90,7 @@ def _format_chunks(results) -> str:
     return "\n\n".join(out)
 
 
-@spaces.GPU(duration=120)
+@spaces.GPU(duration=60)
 def ask(question: str, api_key: str):
     """Retrieve always; generate only when the visitor supplied a key."""
     question = (question or "").strip()
